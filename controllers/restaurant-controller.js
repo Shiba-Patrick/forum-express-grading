@@ -1,4 +1,4 @@
-const { Restaurant, Category, Comment, User } = require('../models')
+const { Restaurant, Category, Comment, User, Favorite } = require('../models')
 const { getOffset, getPagination } = require('../helpers/pagination-helper')
 const assert = require('assert') // 練習用assert
 
@@ -67,14 +67,25 @@ const restaurantController = {
   },
   getDashboard: (req, res, next) => {
     const { id } = req.params
-    return Restaurant.findByPk(id, {
-      include: [Category],
-      raw: true,
-      nest: true
-    })
-      .then(restaurant => {
+    return Promise.all([
+      Restaurant.findByPk(id, {
+        include: [Category],
+        raw: true,
+        nest: true
+      }),
+      Comment.count({
+        where: { restaurantId: id },
+        raw: true
+      }),
+      Favorite.count({
+        where: { restaurantId: id },
+        raw: true
+      })
+    ])
+
+      .then(([restaurant, comments, Favorite]) => {
         if (!restaurant) throw new Error("Restaurant didn't exist!")
-        res.render('dashboard', { restaurant })
+        res.render('dashboard', { restaurant, comments, Favorite })
       })
       .catch(err => next(err))
   },

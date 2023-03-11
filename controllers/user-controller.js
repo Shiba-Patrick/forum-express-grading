@@ -42,19 +42,28 @@ const userController = {
   getUser: (req, res, next) => { // profile頁面瀏覽
     return Promise.all([
       User.findByPk(req.params.id, {
-        raw: true
+        include: [
+          { model: Restaurant, as: 'FavoritedRestaurants' },
+          { model: User, as: 'Followings' },
+          { model: User, as: 'Followers' }
+        ]
       }),
+      // sql_mode=only_full_group_by:attribute select columnName then loading group
       Comment.findAll({
-        raw: true,
-        nest: true,
         where: { userId: req.params.id },
-        include: Restaurant
+        attributes: ['restaurant_id'],
+        group: 'restaurant_id',
+        include: Restaurant,
+        raw: true,
+        nest: true
       })
     ])
       .then(([user, comments]) => {
         if (!user) throw new Error("User didn't exist")
-        const commentCounts = comments.length
-        return res.render('users/profile', { user, comments, commentCounts })
+        return res.render('users/profile', {
+          user: user.toJSON(),
+          comments
+        })
       })
       .catch(err => next(err))
   },
@@ -190,7 +199,8 @@ const userController = {
         // .sort((a, b) => b.followerCount - a.followerCount)
         // res.render('top-users', { users: result })
 
-        res.render('top-users', { users: users })
+        const userEmail = req.user.email // 使用者的mail去跟hbs的ifCondReverse對照來確認當下使用者
+        res.render('top-users', { users: users, userEmail })
       })
       .catch(err => next(err))
   },
